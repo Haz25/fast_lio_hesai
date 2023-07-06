@@ -52,6 +52,10 @@ M3F Eye3f(M3F::Identity());
 V3D Zero3d(0, 0, 0);
 V3F Zero3f(0, 0, 0);
 
+//V3D Bias_a(0.06080652138668933, 0.08353074835853214, 0.057072968234636895);
+//V3D Bias_g(-0.0015351229643790084, -0.0013449146576507546, 0.00030127855524786183);
+//V3D Gravity(0.01165152782783894, 9.804989173462031, -0.008749296634685332);
+
 struct MeasureGroup     // Lidar data and imu dates for the curent process
 {
     MeasureGroup()

@@ -276,7 +276,7 @@ void ImuProcess::UndistortPcl(const MeasureGroup &meas, esekfom::esekf<state_ikf
     kf_state.predict(dt, Q, in);
 
     /* save the poses at each IMU measurements */
-    imu_state = kf_state.get_x();
+    imu_state = kf_state.get_x(); 
     angvel_last = angvel_avr - imu_state.bg;
     acc_s_last  = imu_state.rot * (acc_avr - imu_state.ba);
     for(int i=0; i<3; i++)

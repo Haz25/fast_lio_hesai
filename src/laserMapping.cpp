@@ -37,6 +37,8 @@
 #include <math.h>
 #include <thread>
 #include <fstream>
+#include <iostream>
+#include <string>
 #include <csignal>
 #include <unistd.h>
 #include <Python.h>
@@ -135,6 +137,7 @@ nav_msgs::Path path;
 nav_msgs::Odometry odomAftMapped;
 geometry_msgs::Quaternion geoQuat;
 geometry_msgs::PoseStamped msg_body_pose;
+//geometry_msgs::PoseStamped msg_body_pose_wrt_lidar;
 
 shared_ptr<Preprocess> p_pre(new Preprocess());
 shared_ptr<ImuProcess> p_imu(new ImuProcess());
@@ -360,6 +363,37 @@ void imu_cbk(const sensor_msgs::Imu::ConstPtr &msg_in)
     imu_buffer.push_back(msg);
     mtx_buffer.unlock();
     sig_buffer.notify_all();
+}
+
+void save_path(const nav_msgs::Path::ConstPtr &msg)
+{   
+    static int cnt = 0;
+    string line;
+    auto time = msg->poses[cnt].header.stamp.toSec();
+    auto x = msg->poses[cnt].pose.position.x;
+    auto y = msg->poses[cnt].pose.position.y;
+    auto z = msg->poses[cnt].pose.position.z;
+    auto qx = msg->poses[cnt].pose.orientation.x;
+    auto qy = msg->poses[cnt].pose.orientation.y;
+    auto qz = msg->poses[cnt].pose.orientation.z;
+    auto qw = msg->poses[cnt].pose.orientation.w;
+    line = to_string(time)+" "+to_string(x)+" "+to_string(y)+" "+to_string(z)+" "+to_string(qx)+" "+to_string(qy)+" "+to_string(qz)+" "+to_string(qw)+" ";
+    //cout << cnt+1 << " " << line << endl;
+    
+    FILE *fp;
+    string dir = root_dir + "/trajectories/exp.txt";
+    if (cnt == 0)
+    {
+        fp = fopen(dir.c_str(), "w");
+    }
+    else
+    {
+        fp = fopen(dir.c_str(), "a");
+    }
+    fprintf(fp, (line+"\n").c_str());
+    fclose(fp);
+    
+    cnt++; 
 }
 
 double lidar_mean_scantime = 0.0;
@@ -621,13 +655,13 @@ void publish_path(const ros::Publisher pubPath)
     msg_body_pose.header.frame_id = "camera_init";
 
     /*** if path is too large, the rvis will crash ***/
-    static int jjj = 0;
-    jjj++;
-    if (jjj % 10 == 0) 
-    {
-        path.poses.push_back(msg_body_pose);
-        pubPath.publish(path);
-    }
+    //static int jjj = 0;
+    //if (jjj % 10 == 0) 
+    //{
+    path.poses.push_back(msg_body_pose);
+    pubPath.publish(path);
+    //}
+    //jjj++;
 }
 
 void h_share_model(state_ikfom &s, esekfom::dyn_share_datastruct<double> &ekfom_data)
@@ -839,6 +873,9 @@ int main(int argc, char** argv)
         nh.subscribe(lid_topic, 200000, livox_pcl_cbk) : \
         nh.subscribe(lid_topic, 200000, standard_pcl_cbk);
     ros::Subscriber sub_imu = nh.subscribe(imu_topic, 200000, imu_cbk);
+
+    ros::Subscriber sub_path = nh.subscribe("/path",100000, save_path);
+
     ros::Publisher pubLaserCloudFull = nh.advertise<sensor_msgs::PointCloud2>
             ("/cloud_registered", 100000);
     ros::Publisher pubLaserCloudFull_body = nh.advertise<sensor_msgs::PointCloud2>
@@ -916,7 +953,7 @@ int main(int argc, char** argv)
             int featsFromMapNum = ikdtree.validnum();
             kdtree_size_st = ikdtree.size();
             
-            // cout<<"[ mapping ]: In num: "<<feats_undistort->points.size()<<" downsamp "<<feats_down_size<<" Map num: "<<featsFromMapNum<<"effect num:"<<effct_feat_num<<endl;
+            //cout<<"[ mapping ]: In num: "<<feats_undistort->points.size()<<" downsamp "<<feats_down_size<<" Map num: "<<featsFromMapNum<<"effect num:"<<effct_feat_num<<endl;
 
             /*** ICP and iterated Kalman filter update ***/
             if (feats_down_size < 5)

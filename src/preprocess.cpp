@@ -77,7 +77,11 @@ void Preprocess::process(const sensor_msgs::PointCloud2::ConstPtr &msg, PointClo
   case VELO16:
     velodyne_handler(msg);
     break;
-  
+
+  case HESAI:
+    hesai_handler(msg);
+    break;
+
   default:
     printf("Error LiDAR Type");
     break;
@@ -449,6 +453,58 @@ void Preprocess::velodyne_handler(const sensor_msgs::PointCloud2::ConstPtr &msg)
         }
       }
     }
+}
+
+void Preprocess::hesai_handler(const sensor_msgs::PointCloud2::ConstPtr &msg)
+{
+  pl_surf.clear();
+  pl_corn.clear();
+  pl_full.clear();
+
+  pcl::PointCloud<hesai_ros::Point> pl_orig;
+  pcl::fromROSMsg(*msg, pl_orig);
+  int plsize = pl_orig.points.size();
+  if (plsize == 0) return;
+  pl_surf.reserve(plsize);
+
+  if(feature_enabled)
+  {
+    for (int i = 0; i < N_SCANS; i++)
+    {
+      pl_buff[i].clear();
+      pl_buff[i].reserve(plsize);
+    }
+  }
+
+  for (int i = 0; i < plsize; i++)
+  {
+    PointType added_pt;
+    added_pt.normal_x = 0;
+    added_pt.normal_y = 0;
+    added_pt.normal_z = 0;
+    int layer  = pl_orig.points[i].ring;
+    if (layer >= N_SCANS) continue;
+    added_pt.x = pl_orig.points[i].x;
+    added_pt.y = pl_orig.points[i].y;
+    added_pt.z = pl_orig.points[i].z;
+    added_pt.intensity = pl_orig.points[i].intensity;
+    added_pt.curvature = (pl_orig.points[i].timestamp-pl_orig.points[0].timestamp) * time_unit_scale;
+
+    if(feature_enabled)
+    {
+      pl_buff[layer].points.push_back(added_pt);
+    }
+    else
+    {
+      if (i % point_filter_num == 0)
+      {
+        if(added_pt.x*added_pt.x+added_pt.y*added_pt.y+added_pt.z*added_pt.z > (blind * blind))
+        {
+          pl_surf.points.push_back(added_pt);
+        }
+      }
+    } 
+  }
 }
 
 void Preprocess::give_feature(pcl::PointCloud<PointType> &pl, vector<orgtype> &types)
